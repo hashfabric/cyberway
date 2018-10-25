@@ -330,6 +330,10 @@ namespace cyberway { namespace chaindb {
             CYBERWAY_ASSERT(view.end() != itr, driver_primary_key_exception,
                 "External database locate row in the table ${table} for without primary key.",
                 ("table_name", get_full_table_name(table)));
+            if (itr->type() == bsoncxx::type::k_utf8) {
+                auto value = bsoncxx::stdx::string_view(itr->get_utf8().value).to_string();
+                return eosio::chain::string_to_name(value.c_str());
+            }
             return itr->get_int64().value;
         }
     } } // namespace _detail
@@ -879,6 +883,17 @@ namespace cyberway { namespace chaindb {
             options::find().limit(1));
 
         auto itr = cursor.begin();
+
+        // Try to find item if primary key has type 'name'
+        if(cursor.end() == itr) {
+            cursor = impl_->get_db_table(table).find(
+                    make_document(
+                        kvp(get_scope_field_name(), get_scope_name(table)),
+                        kvp(*table.pk_field, eosio::chain::name{static_cast<int64_t>(pk)}.to_string())),
+                    options::find().limit(1));
+            itr = cursor.begin();
+        }
+
         CYBERWAY_ASSERT(cursor.end() != itr, driver_absent_object_exception,
             "External database doesn't contain object with primary key ${pk} in the table ${table}",
             ("pk", pk)("table", get_full_table_name(table)));

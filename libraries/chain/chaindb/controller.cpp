@@ -1,4 +1,5 @@
 #include <eosio/chain/abi_serializer.hpp>
+#include <eosio/chain/name.hpp>
 
 #include <cyberway/chaindb/controller.hpp>
 #include <cyberway/chaindb/exception.hpp>
@@ -11,6 +12,7 @@
 
 namespace cyberway { namespace chaindb {
 
+    using eosio::chain::name;
     using eosio::chain::struct_def;
     using eosio::chain::field_def;
     using eosio::chain::abi_serializer;
@@ -507,11 +509,16 @@ namespace cyberway { namespace chaindb {
                 "ChainDB driver returns object without primary key", ("table", get_full_table_name(table)));
 
             auto type = itr->value().get_type();
-            CYBERWAY_ASSERT(variant::uint64_type == type || variant::int64_type == type, driver_primary_key_exception,
-                "ChainDB driver returns object with wrong type of primary key", ("table", get_full_table_name(table)));
+            if (variant::string_type == type) {
+                CYBERWAY_ASSERT(name{pk}.to_string() == itr->value().as_string(), primary_key_exception,
+                        "ChainDB driver returns object with wrong value of primary key", ("table", get_full_table_name(table)));
+            } else {
+                CYBERWAY_ASSERT(variant::uint64_type == type || variant::int64_type == type, driver_primary_key_exception,
+                        "ChainDB driver returns object with wrong type of primary key", ("table", get_full_table_name(table)));
 
-            CYBERWAY_ASSERT(pk == itr->value().as_uint64(), driver_primary_key_exception,
-                "ChainDB driver returns object with wrong value of primary key", ("table", get_full_table_name(table)));
+                CYBERWAY_ASSERT(pk == itr->value().as_uint64(), driver_primary_key_exception,
+                        "ChainDB driver returns object with wrong value of primary key", ("table", get_full_table_name(table)));
+            }
         }
 
         void validate_service_fields(const table_info& table, const variant& value, const primary_key_t pk) const {
@@ -530,11 +537,16 @@ namespace cyberway { namespace chaindb {
                 "The table ${table} doesn't have primary key", ("table", get_full_table_name(table)));
 
             auto type = itr->value().get_type();
-            CYBERWAY_ASSERT(variant::uint64_type == type || variant::int64_type == type, primary_key_exception,
-                "The table ${table} has wrong type of primary key", ("table", get_full_table_name(table)));
+            if (variant::string_type == type) {
+                CYBERWAY_ASSERT(name{pk}.to_string() == itr->value().as_string(), primary_key_exception,
+                        "The table ${table} has wrong value of primary key", ("table", get_full_table_name(table)));
+            } else {
+                CYBERWAY_ASSERT(variant::uint64_type == type || variant::int64_type == type, primary_key_exception,
+                        "The table ${table} has wrong type of primary key", ("table", get_full_table_name(table)));
 
-            CYBERWAY_ASSERT(pk == itr->value().as_uint64(), primary_key_exception,
-                "The table ${table} has wrong value of primary key", ("table", get_full_table_name(table)));
+                CYBERWAY_ASSERT(pk == itr->value().as_uint64(), primary_key_exception,
+                        "The table ${table} has wrong value of primary key", ("table", get_full_table_name(table)));
+            }
         }
 
         variant add_service_fields(
