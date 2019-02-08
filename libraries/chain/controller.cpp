@@ -687,6 +687,8 @@ struct controller_impl {
 
       authority system_auth(conf.genesis.initial_key);
       create_native_account( config::system_account_name, system_auth, system_auth, true );
+      //create_native_account( N(cyber.stake), system_auth, system_auth, true ); //TODO:?
+      
       create_native_account(config::domain_account_name, system_auth, system_auth);
 
       auto empty_authority = authority(1, {}, {});

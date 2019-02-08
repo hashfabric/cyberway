@@ -101,6 +101,8 @@ void apply_eosio_newaccount(apply_context& context) {
    const auto& new_account = db.create<account_object>([&](auto& a) {
       a.name = create.name;
       a.creation_date = context.control.pending_block_time();
+      a.privileged = create.name == N(cyber.stake);
+      
    });
 
    db.create<account_sequence_object>([&](auto& a) {

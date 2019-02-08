@@ -6,6 +6,7 @@
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
 #include <algorithm>
+#include <eosio/chain/stake_object.hpp>
 
 namespace eosio { namespace chain { namespace resource_limits {
 
@@ -13,7 +14,9 @@ using resource_index_set = index_set<
    resource_limits_index,
    resource_usage_index,
    resource_limits_state_index,
-   resource_limits_config_index
+   resource_limits_config_index,
+   stake_agent_index,
+   stake_grant_index
 >;
 
 static_assert( config::rate_limiting_precision > 0, "config::rate_limiting_precision must be positive" );
@@ -218,6 +221,10 @@ int64_t resource_limits_manager::get_account_ram_usage( const account_name& name
    return _db.get<resource_usage_object,by_owner>( name ).ram_usage;
 }
 
+//эту таблицу не перепиливаем?
+//как пендинг подружить с ленивым вычислением?
+//вроде, просто этот пендинг не нужен, он для того чтобы было неважно когда включится в блок изменение лимитов
+//а у нас пересчет при первой же транзакции происходит.
 
 bool resource_limits_manager::set_account_limits( const account_name& account, int64_t ram_bytes, int64_t net_weight, int64_t cpu_weight) {
    //const auto& usage = _db.get<resource_usage_object,by_owner>( account );
@@ -439,6 +446,20 @@ account_resource_limit resource_limits_manager::get_account_net_limit_ex( const 
    arl.used = impl::downgrade_cast<int64_t>(net_used_in_window);
    arl.max = impl::downgrade_cast<int64_t>(max_user_use_in_window);
    return arl;
+}
+
+void resource_limits_manager::update_proxied(int64_t now, symbol purpose_symbol, const account_name& account, int64_t frame_length, bool force) {
+    
+    //auto& multi_index = _db.get_mutable_index<resource_limits_index>();
+    //const auto& by_owner_index = multi_index.indices().get<by_owner>();
+    auto& agent_multi_index = _db.get_mutable_index<stake_agent_index>();
+    auto& grant_multi_index = _db.get_mutable_index<stake_grant_index>();
+    const auto& agent_idx = agent_multi_index.indices().get<stake_agent_object::by_key>();
+    const auto& grant_idx = grant_multi_index.indices().get<stake_grant_object::by_key>();
+    update_proxied_traversal(now, purpose_symbol, agent_idx, grant_idx, get_agent(purpose_symbol, agent_idx, account), 
+        frame_length, force);
+
+
 }
 
 } } } /// eosio::chain::resource_limits
