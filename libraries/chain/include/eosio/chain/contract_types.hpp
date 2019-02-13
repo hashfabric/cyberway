@@ -193,6 +193,24 @@ struct provideram {
     }
 };
 
+struct requestram {
+    account_name        provider;
+    account_name        account;
+    std::vector<account_name>   contracts;
+
+    requestram() = default;
+    requestram(const account_name& provider, const account_name& account, std::vector<name> contracts)
+        : provider(provider), account(account), contracts(std::move(contracts))
+    {}
+
+    static account_name get_account() {
+        return config::system_account_name;
+    }
+
+    static action_name get_name() {
+        return N(requestram);
+    }
+};
 
 // it's ugly, but removes boilerplate. TODO: write better
 #define SYS_ACTION_STRUCT(NAME) struct NAME { \
@@ -266,6 +284,25 @@ struct approvebw {
     }
 };
 
+struct approveram {
+    account_name    account;
+    std::vector<account_name> contracts;
+
+    approveram() = default;
+    approveram(const account_name& account, std::vector<account_name> contracts)
+        : account(account), contracts(std::move(contracts))
+    {}
+
+    static account_name get_account() {
+       return config::system_account_name;
+    }
+
+    static action_name get_name() {
+        return N(approveram);
+    }
+};
+
+
 } } /// namespace eosio::chain
 
 FC_REFLECT( eosio::chain::newaccount                       , (creator)(name)(owner)(active) )
@@ -279,6 +316,8 @@ FC_REFLECT( eosio::chain::providebw                        , (provider)(account)
 FC_REFLECT( eosio::chain::requestbw                        , (provider)(account) )
 FC_REFLECT( eosio::chain::approvebw                        , (account) )
 FC_REFLECT( eosio::chain::provideram                       , (provider)(account)(contracts) )
+FC_REFLECT( eosio::chain::requestram                       , (provider)(account)(contracts) )
+FC_REFLECT( eosio::chain::approveram                       , (account)(contracts) )
 FC_REFLECT( eosio::chain::canceldelay                      , (canceling_auth)(trx_id) )
 FC_REFLECT( eosio::chain::onerror                          , (sender_id)(sent_trx) )
 

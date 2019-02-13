@@ -47,6 +47,9 @@ const static uint64_t request_bw_action = N(requestbw);
 const static uint64_t approve_bw_action = N(approvebw);
 const static uint64_t provide_bw_action = N(providebw);
 
+const static uint64_t request_ram_action = N(requestram);
+const static uint64_t approve_ram_action = N(approveram);
+
 const static int      block_interval_ms = 3000;
 const static int      block_interval_us = block_interval_ms*1000;
 const static uint64_t block_timestamp_epoch = 946684800000ll; // epoch is year 2000.

@@ -728,4 +728,57 @@ namespace bacc = boost::accumulators;
        return contract_provider == ram_providers_.end() ? user : contract_provider->second;
    }
 
+   void transaction_context::wait_for_approveram_confirmation(account_name user, std::vector<account_name> contracts) {
+       pending_approveram_contracts_[user].push_back(std::move(contracts));
+   }
+
+   void transaction_context::confirm_ram_provision(account_name provider, account_name user, const std::vector<account_name>& contracts) {
+       const auto user_contracts_groups_it = pending_approveram_contracts_.find(user);
+       EOS_ASSERT(user_contracts_groups_it != pending_approveram_contracts_.end(), ram_provider_error, "The user ${user} hasn't requested to approve requestram operation", ("user", user));
+
+       for (auto user_contracts_group = user_contracts_groups_it->second.begin(); user_contracts_group != user_contracts_groups_it->second.end(); ++user_contracts_group) {
+
+           if (std::equal(user_contracts_group->begin(), user_contracts_group->end(), contracts.begin())) {
+                add_ram_provider(contracts, user, provider);
+
+                user_contracts_groups_it->second.erase(user_contracts_group);
+
+                if (user_contracts_groups_it->second.empty()) {
+                    pending_approveram_contracts_.erase(user_contracts_groups_it);
+                }
+                return;
+           }
+
+       }
+       EOS_THROW(ram_provider_error, "The user \'${user}\' hasn't asked to approveram for the contracts the provider \'${provider}\' has approved for", ("user", user) ("provider", provider));
+
+   }
+
+   void transaction_context::add_ram_provider(const std::vector<account_name>& contracts, account_name user, account_name provider) {
+       for (const auto& contract : contracts) {
+
+           const auto contract_for_user = std::pair<account_name, account_name>(contract, user);
+
+           EOS_ASSERT(ram_providers_.find(contract_for_user) == ram_providers_.end(), ram_provider_error, "The user ${user} already has provided ram", ("user", user));
+
+           ram_providers_[contract_for_user] = provider;
+       }
+   }
+
+   void transaction_context::verify_requestram_approved() throw (ram_provider_error) {
+       if (!pending_approveram_contracts_.empty()) {
+           std::string not_approved_contracts;
+           for (const auto& user_contract_groups : pending_approveram_contracts_) {
+               for (const auto& contracts_group : user_contract_groups.second) {
+                   not_approved_contracts += user_contract_groups.first.to_string() + " :";
+                   for (const auto& contract : contracts_group) {
+                        not_approved_contracts += " " + contract.to_string() + ",";
+                   }
+                   not_approved_contracts.replace(not_approved_contracts.size() - 1, 1, "\n");
+               }
+           }
+           EOS_THROW(ram_provider_error, "Not all requestram operations where approved: ${not_approved}", ("not_approved", not_approved_contracts));
+       }
+   }
+
 } } /// eosio::chain

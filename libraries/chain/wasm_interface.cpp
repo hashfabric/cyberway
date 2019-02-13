@@ -1148,11 +1148,17 @@ class bandwith_api : public context_aware_api {
 class ram_provide_api : public context_aware_api {
     public:
         ram_provide_api( apply_context& ctx )
-        : context_aware_api(ctx,true) {}
+        : context_aware_api(ctx, false) {}
 
         account_name get_ram_provider(account_name user) const {
             const account_name running_contract = context.receiver;
             return context.trx_context.get_ram_provider(running_contract, user);
+        }
+
+        void confirm_approve_ram(account_name user, array_ptr<account_name> contracts, size_t size) {
+            std::vector<account_name> contracts_vector(contracts.value, contracts.value + size);
+            const account_name running_contract = context.receiver;
+            context.trx_context.confirm_ram_provision(running_contract, user, contracts_vector);
         }
 };
 
@@ -1907,7 +1913,8 @@ REGISTER_INTRINSICS(bandwith_api,
 );
 
 REGISTER_INTRINSICS(ram_provide_api,
-    (get_ram_provider, int64_t(int64_t))
+    (get_ram_provider,      int64_t(int64_t)        )
+    (confirm_approve_ram,   void(int64_t, int, int) )
 );
 
 REGISTER_INTRINSICS(context_free_transaction_api,

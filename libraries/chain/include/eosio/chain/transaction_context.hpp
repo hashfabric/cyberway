@@ -30,9 +30,9 @@ namespace eosio { namespace chain {
        account_name provider_;
    };
 
-
-   struct bandwith_request_result {
+   struct resurces_request_result {
        std::map<account_name, provided_bandwith> bandwith;
+       std::map<std::pair<account_name, account_name>, account_name> ram;
        uint64_t used_net;
        uint64_t used_cpu;
    };
@@ -97,7 +97,7 @@ namespace eosio { namespace chain {
 
          uint64_t get_provided_cpu_limit(account_name account) const;
 
-         std::map<account_name, provided_bandwith> get_provided_bandwith() const {return provided_bandwith_;}
+         std::map<account_name, provided_bandwith>& get_provided_bandwith() {return provided_bandwith_;}
 
          bool is_provided_bandwith_confirmed(account_name account) const;
 
@@ -111,6 +111,16 @@ namespace eosio { namespace chain {
 
          account_name get_ram_provider(account_name running_contract, account_name user) const;
 
+         void set_ram_providers(std::map<std::pair<account_name, account_name>, account_name> providers) {ram_providers_ = std::move(providers);}
+
+         std::map<std::pair<account_name, account_name>, account_name>& get_ram_providers() {return ram_providers_;}
+
+         void wait_for_approveram_confirmation(account_name user, std::vector<account_name> contracts);
+
+         void confirm_ram_provision(account_name provider, account_name user, const std::vector<account_name>& contracts);
+
+         void verify_requestram_approved() throw (ram_provider_error);
+
       private:
 
          friend struct controller_impl;
@@ -120,6 +130,8 @@ namespace eosio { namespace chain {
 
          void add_ram_provider(const provideram& provide_ram);
          void add_ram_provider(account_name contract, account_name user, account_name provider);
+
+         void add_ram_provider(const std::vector<account_name>& contracts, account_name user, account_name provider);
 
          void dispatch_action( action_trace& trace, const action& a, account_name receiver, bool context_free = false, uint32_t recurse_depth = 0 );
          inline void dispatch_action( action_trace& trace, const action& a, bool context_free = false ) {
@@ -186,6 +198,8 @@ namespace eosio { namespace chain {
          using contract_for_user = std::pair<account_name, account_name>;
 
          std::map<contract_for_user, account_name> ram_providers_;
+         using contracts_group = std::vector<account_name>;
+         std::map<account_name, std::vector<contracts_group>> pending_approveram_contracts_;
     };
 
 } }

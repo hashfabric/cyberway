@@ -238,7 +238,9 @@ struct controller_impl {
 
    SET_APP_HANDLER(cyber, cyber, providebw);
    SET_APP_HANDLER(cyber, cyber, requestbw);
+
    SET_APP_HANDLER(cyber, cyber, provideram);
+   SET_APP_HANDLER(cyber, cyber, requestram );
 /*
    SET_APP_HANDLER(cyber, cyber, postrecovery);
    SET_APP_HANDLER(cyber, cyber, passrecovery);
@@ -846,7 +848,7 @@ struct controller_impl {
       return push_scheduled_transaction( *itr, deadline, billed_cpu_time_us, explicit_billed_cpu_time );
    }
 
-    void call_approvebw_actions(signed_transaction& call_provide_trx, transaction_context& trx_context) {
+    void call_approve_actions(signed_transaction& call_provide_trx, transaction_context& trx_context) {
         call_provide_trx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to avoid appearing expired
         call_provide_trx.set_reference_block( self.head_block_id() );
 
@@ -860,26 +862,42 @@ struct controller_impl {
         restore.cancel();
     }
 
-    bandwith_request_result get_provided_bandwith(const vector<action>& actions, fc::time_point deadline)  {
-        signed_transaction call_provide_trx;
-        transaction_context trx_context( self, call_provide_trx, call_provide_trx.id());
+    resurces_request_result get_provided_resources(const vector<action>& actions, fc::time_point deadline)  {
+        signed_transaction call_approve_trx;
+        transaction_context trx_context( self, call_approve_trx, call_approve_trx.id());
         for (const auto& action : actions) {
-            if (action.account == config::system_account_name && action.name == config::request_bw_action) {
+            if (action.account != config::system_account_name) {
+                continue;
+            }
+
+            if (action.name == config::request_bw_action) {
                 const auto request_bw = action.data_as<requestbw>();
-                call_provide_trx.actions.emplace_back(
+                call_approve_trx.actions.emplace_back(
                     vector<permission_level>{{request_bw.provider, config::active_name}},
                     request_bw.provider,
                     config::approve_bw_action,
-                    fc::raw::pack(approvebw(request_bw.account)));
+                    fc::raw::pack(approvebw( request_bw.account))
+                );
+            } else if (action.name == config::request_ram_action) {
+                auto request_ram = action.data_as<requestram>();
+                call_approve_trx.actions.emplace_back(
+                    vector<permission_level>{{request_ram.provider, config::active_name}},
+                    request_ram.provider,
+                    config::approve_ram_action,
+                    fc::raw::pack(approveram(request_ram.account, request_ram.contracts))
+                );
+                trx_context.wait_for_approveram_confirmation(request_ram.account, std::move(request_ram.contracts));
             }
+
         }
 
-        if (!call_provide_trx.actions.empty()) {
+        if (!call_approve_trx.actions.empty()) {
             trx_context.deadline = deadline;
-            call_approvebw_actions(call_provide_trx, trx_context);
+            call_approve_actions(call_approve_trx, trx_context);
+            trx_context.verify_requestram_approved();
         }
 
-        return {trx_context.get_provided_bandwith(), trx_context.get_net_usage(), trx_context.get_cpu_usage()};
+        return {std::move(trx_context.get_provided_bandwith()), std::move(trx_context.get_ram_providers()), trx_context.get_net_usage(), trx_context.get_cpu_usage()};
     }
 
    transaction_trace_ptr push_scheduled_transaction( const generated_transaction_object& gto, fc::time_point deadline, uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time = false )
@@ -938,10 +956,12 @@ struct controller_impl {
       trx_context.billed_cpu_time_us = billed_cpu_time_us;
       trace = trx_context.trace;
       try {
-         auto bandwith_request_result = get_provided_bandwith(dtrx.actions, deadline);
+         auto bandwith_request_result = get_provided_resources(dtrx.actions, deadline);
          trx_context.set_provided_bandwith(std::move(bandwith_request_result.bandwith));
          trx_context.add_cpu_usage(bandwith_request_result.used_cpu);
          trx_context.add_net_usage(bandwith_request_result.used_net);
+
+         trx_context.set_ram_providers(std::move(bandwith_request_result.ram));
 
          trx_context.init_for_deferred_trx( gtrx.published );
          trx_context.exec();
@@ -1084,11 +1104,13 @@ struct controller_impl {
          trx_context.billed_cpu_time_us = billed_cpu_time_us;
          trace = trx_context.trace;
          try {
-            auto bandwith_request_result = get_provided_bandwith(trn.actions, deadline);
+            auto bandwith_request_result = get_provided_resources(trn.actions, deadline);
 
             trx_context.set_provided_bandwith(std::move(bandwith_request_result.bandwith));
             trx_context.add_cpu_usage(bandwith_request_result.used_cpu);
             trx_context.add_net_usage(bandwith_request_result.used_net);
+
+            trx_context.set_ram_providers(std::move(bandwith_request_result.ram));
 
             if( trx->implicit ) {
                trx_context.init_for_implicit_trx();
