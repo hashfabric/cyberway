@@ -206,6 +206,7 @@ struct genesis_read::genesis_read_impl final {
             reslim_mgr.initialize_account(name);
             if ((++i & 0xFF) == 0) {
                 db.clear_cache();
+                db.apply_all_changes();
             }
         }
 
@@ -220,6 +221,7 @@ struct genesis_read::genesis_read_impl final {
             });
             if ((++i & 0x3FF) == 0) {
                 db.clear_cache();
+                db.apply_all_changes();
             }
         }
 
@@ -252,7 +254,7 @@ genesis_read::~genesis_read() {
 void genesis_read::read() {
     _impl->read_state();
     _impl->create_accounts();
-    _impl->create_balances();
+    //_impl->create_balances();
     // TODO: witnesses
 }
 
