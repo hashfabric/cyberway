@@ -26,6 +26,7 @@
 
 
 #include <cyberway/chaindb/controller.hpp>
+#include <cyberway/genesis/genesis_read.hpp>
 
 namespace eosio { namespace chain {
 
@@ -207,7 +208,7 @@ struct controller_impl {
 
    controller_impl( const controller::config& cfg, controller& s  )
    :self(s),
-    chaindb(cfg.chaindb_address_type, cfg.chaindb_address),
+    chaindb(cfg.chaindb_address_type, cfg.chaindb_address, cfg.chaindb_sys_name),
 // TODO: removed by CyberWay
 //    db( cfg.state_dir,
 //        cfg.read_only ? database::read_only : database::read_write,
@@ -373,6 +374,8 @@ struct controller_impl {
 
       auto start = fc::time_point::now();
       while( auto next = blog.read_block_by_num( head->block_num + 1 ) ) {
+         auto session = chaindb.start_undo_session(true);
+         session.push();
          replay_push_block( next, controller::block_status::irreversible );
          if( next->block_num() % 100 == 0 ) {
             std::cerr << std::setw(10) << next->block_num() << " of " << blog_head->block_num() <<"\r";
@@ -382,15 +385,21 @@ struct controller_impl {
       std::cerr<< "\n";
       ilog( "${n} blocks replayed", ("n", head->block_num - start_block_num) );
 
-      // if the irreverible log is played without undo sessions enabled, we need to sync the
-      // revision ordinal to the appropriate expected value here.
-      if( self.skip_db_sessions( controller::block_status::irreversible ) )
-         set_revision(head->block_num);
+// TODO: Removed by CyberWay
+//      // if the irreverible log is played without undo sessions enabled, we need to sync the
+//      // revision ordinal to the appropriate expected value here.
+//      if( self.skip_db_sessions( controller::block_status::irreversible ) )
+//         set_revision(head->block_num);
 
       int rev = 0;
+      auto total = blog_head->block_num() + reversible_blocks.get_index<reversible_block_index>().indices().size();
       while( auto obj = reversible_blocks.find<reversible_block_object,by_num>(head->block_num+1) ) {
          ++rev;
          replay_push_block( obj->get_block(), controller::block_status::validated );
+         if( obj->get_block()->block_num() % 100 == 0 ) {
+            std::cerr << std::setw(10) << obj->get_block()->block_num() << " of " << total << "\r";
+            if( shutdown() ) break;
+         }
       }
 
       ilog( "${n} reversible blocks replayed", ("n",rev) );
@@ -533,6 +542,15 @@ struct controller_impl {
    }
 
 
+    void read_genesis() {
+        if (conf.read_genesis) {
+            chaindb.add_abi(config::token_account_name, token_contract_abi());   // need to add here again
+            chaindb.add_abi(config::gls_vest_account_name, golos_vesting_contract_abi());
+            cyberway::genesis::genesis_read reader(conf.genesis_file, self, conf.genesis.initial_timestamp);
+            reader.read();
+        }
+    }
+
    /**
     *  Sets fork database head to the genesis state.
     */
@@ -556,6 +574,7 @@ struct controller_impl {
       set_revision(head->block_num);
 
       initialize_database();
+      read_genesis();
    }
 
    void create_native_account( account_name name, const authority& owner, const authority& active, bool is_privileged = false ) {
@@ -568,6 +587,10 @@ struct controller_impl {
             a.set_abi(eosio_contract_abi());
          } else if (name == config::domain_account_name) {
             a.set_abi(domain_contract_abi());
+         } else if (name == config::token_account_name) {
+            a.set_abi(token_contract_abi());
+         } else if (name == config::gls_vest_account_name) {
+            a.set_abi(golos_vesting_contract_abi());
          }
       });
       chaindb.emplace<account_sequence_object>([&](auto & a) {
@@ -645,6 +668,14 @@ struct controller_impl {
                                                                              majority_permission.id,
                                                                              active_producers_authority,
                                                                              conf.genesis.initial_timestamp );
+
+     if (conf.read_genesis) {
+        create_native_account(config::token_account_name, system_auth, system_auth);
+        // TODO: gls auths must be changed here or at startup
+        create_native_account(config::gls_ctrl_account_name, system_auth, system_auth);
+        create_native_account(config::gls_vest_account_name, system_auth, system_auth);
+        create_native_account(config::gls_post_account_name, system_auth, system_auth);
+     }
    }
 
 
@@ -1162,6 +1193,7 @@ struct controller_impl {
                      gp.proposed_schedule.clear();
                   });
             }
+
          push_sys_transaction(config::system_account_name, N(onblock), fc::raw::pack(self.head_block_header()));
          if (was_pending_promoted) {
              vector<account_name> producer_names;
@@ -1245,7 +1277,10 @@ struct controller_impl {
          // this implicitly asserts that all header fields (less the signature) are identical
          EOS_ASSERT(producer_block_id == pending->_pending_block_state->header.id(),
                    block_validate_exception, "Block ID does not match",
-                   ("producer_block_id",producer_block_id)("validator_block_id",pending->_pending_block_state->header.id()));
+                   ("producer_block_id",producer_block_id)("validator_block_id",pending->_pending_block_state->header.id())
+                   ("producer_block", static_cast<const block_header&>(*b))
+                   ("validator_block", static_cast<const block_header&>(pending->_pending_block_state->header))
+                   ("num", b->block_num()));
 
          // We need to fill out the pending block state's block because that gets serialized in the reversible block log
          // in the future we can optimize this by serializing the original and not the copy
@@ -1570,7 +1605,6 @@ struct controller_impl {
     *  At the start of each block we notify the system contract with a transaction that passes in
     *  the block header of the prior block (which is currently our head block)
     */
-   
     signed_transaction get_sys_transaction(account_name account, action_name name, const bytes& data) {
         signed_transaction trx;
         trx.actions.emplace_back(action(
@@ -1604,7 +1638,6 @@ struct controller_impl {
             wlog( "system transaction failed" );
         }
     }
-
 }; /// controller_impl
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
