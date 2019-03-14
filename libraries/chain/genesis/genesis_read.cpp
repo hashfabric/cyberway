@@ -221,6 +221,7 @@ struct genesis_read::genesis_read_impl final {
 
     void init_accounts() {
         authority system_auth(_conf.initial_key);
+        create_account(config::token_account_name, system_auth, system_auth, authority());
         create_account(gls_ctrl_account_name, system_auth, system_auth, authority());
         create_account(gls_vest_account_name, system_auth, system_auth, authority());
         create_account(gls_post_account_name, system_auth, system_auth, authority());

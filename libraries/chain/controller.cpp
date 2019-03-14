@@ -644,7 +644,7 @@ struct controller_impl {
       create_native_account(config::domain_account_name, system_auth, system_auth);
       create_native_account(config::govern_account_name, system_auth, system_auth, true);
       create_native_account(config::stake_account_name, system_auth, system_auth, true);
-      create_native_account(config::token_account_name, system_auth, system_auth);
+      // create_native_account(config::token_account_name, system_auth, system_auth);
 
       auto empty_authority = authority(1, {}, {});
       auto active_producers_authority = authority(1, {}, {});
