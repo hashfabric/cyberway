@@ -121,7 +121,7 @@ CyberWay is EOS fork, so you need to ask peoples on [t.me/CyberWayOS](https://t.
 Just drop desired name (it should be same as `<Producer Name>` you set above in config.ini) and wallet public key into chatroom and someone will help you.
 
 ## Register blockproducer
-Enshure you node is in sync first by checking logs.
+Ensure you node is in sync first by checking logs.
 ```sh 
 docker logs --tail 100 -f nodeosd
 ```
