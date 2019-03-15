@@ -9,10 +9,10 @@ Add your account into docker group to make things easier
 ```sh
 sudo usermod -G docker -a $USER
 ```
-Download docker configs and genesis gata
+Download docker configs and genesis data
 ```sh
-mkdir testnet
-cd testnet
+mkdir ~/testnet
+cd ~/testnet
 wget https://raw.githubusercontent.com/GolosChain/cyberway/master/Docker/{docker-compose.yml,config.ini}
 wget http://download.golos.io/genesis.tar.gz
 tar -xf genesis.tar.gz
