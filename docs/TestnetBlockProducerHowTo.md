@@ -118,7 +118,7 @@ You will need it to create account in the CyberWay network.
 
 CyberWay is EOS fork, so you need to ask peoples on [t.me/CyberWayOS](https://t.me/CyberWayOS) Telegram Channel to register one for you.
 
-Just drop desired name (it should be same as <Producer Name> you set above in config.ini) and wallet public key into chatroom and someone will help you.
+Just drop desired name (it should be same as `<Producer Name>` you set above in config.ini) and wallet public key into chatroom and someone will help you.
 
 ## Register blockproducer
 Enshure you node is in sync first by checking logs.
@@ -130,7 +130,7 @@ If its ok, run:
 cleos push action cyber.stake setproxylvl '{"account":"<producer-name>", "token_code":"SYS", "purpose_code":"", "level":0}' -p <producer-name>
 cleos push action cyber.stake setkey '{"account":"<producer-name>", "token_code":"SYS", "signing_key":"<public-key>"}' -p <producer-name>
 ```
-Replace <public-key> with one from config.ini.
+Replace `<public-key>` and `<producer-name>` with values from config.ini.
 
 Wait for a 15 minutes and check if your account name in there:
 ```sh
