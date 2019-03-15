@@ -85,7 +85,7 @@ cleos get info
 
 ## Create validator keys, wallet and CyberWay account
 
-To produce blocks we need a few more sings.
+To produce blocks we need a few more things.
 First, blockproducer keypair (its different from wallet keypair, just BP stuff). Lets generate it by running
 ```sh
 cleos create key --to-console
